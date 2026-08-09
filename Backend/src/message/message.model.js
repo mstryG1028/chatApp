@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import { User } from "../user/user.model.js";
 import { Conversation } from "../converstion/conversation.model.js";
 
-
 const messageSchema = new mongoose.Schema(
   {
     conversation: {
@@ -13,13 +12,8 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    receverId: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-    messsage: {
+
+    message: {
       type: String,
       required: true,
     },

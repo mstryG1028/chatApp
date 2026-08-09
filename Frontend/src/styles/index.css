@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+
+  --color-border: var(--color-border);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+}
+
+@import "./theme.css";
+@import "./globals.css";
+@import "./scrollbar.css";
+@import "./animations.css";

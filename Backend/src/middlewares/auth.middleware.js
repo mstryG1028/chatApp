@@ -6,7 +6,7 @@ export const verifyJWT = async (req, res, next) => {
     const token =
       req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
-    console.log("Token", token);
+
     if (!token) {
       throw new ApiError(400, "Token not found");
     }

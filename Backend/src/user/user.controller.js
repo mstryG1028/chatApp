@@ -9,6 +9,8 @@ const options = {
 };
 
 export const registerUser = asyncHandler(async (req, res) => {
+  console.log("reached controller");
+  console.log(req.body);
   const { name, username, password } = req.body;
 
   if ([name, username, password].some((field) => field.trim() === "")) {
@@ -91,7 +93,6 @@ export const loginUser = asyncHandler(async (req, res) => {
 });
 
 export const logoutUser = asyncHandler(async (req, res) => {
-  console.log(req.user);
   await User.findByIdAndUpdate(
     req.user._id,
     {
@@ -113,18 +114,34 @@ export const logoutUser = asyncHandler(async (req, res) => {
 
 export const getUserDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const user = await User.findById(id).select("-password -refreshToken");
+  const user = await User.findById(req.user._id)
+    .select("-password -refreshToken")
+    .populate("friends", "username avatar");
 
   if (!user) {
-    throw new ApiError(400, {}, "User no longer Exists");
+    throw new ApiError(400, "User no longer Exists");
   }
 
-  res.status(200).json(new ApiResponse(200, user, "Successfully fetched"));
+  res.status(200).json(new ApiResponse(201, user, "Successfully fetched"));
+});
+
+// currently loggedIn user info
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id)
+    .select("-password -refreshToken")
+    .populate("friends", "name username avatar");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Current user fetched successfully"));
 });
 
 export const getAllFriends = asyncHandler(async (req, res) => {
-
-console.log("req.user",req.user);
+  console.log("req.user", req.user);
 
   const userId = req.user._id;
   const user = await User.findById(userId)
@@ -162,4 +179,21 @@ export const addFriend = asyncHandler(async (req, res) => {
   ).populate("friends", "name avatar");
 
   res.status(200).json(new ApiResponse(201, user, "New Friend Added"));
+});
+
+export const searchUser = asyncHandler(async (req, res) => {
+  const { query } = req.query;
+  const users = await User.find({
+    $or: [
+      { name: { $regex: query, $options: "i" } },
+      { username: { $regex: query, $options: "i" } },
+    ],
+    _id: {
+      $ne: req.user._id,
+    },
+  }).select("_id username avatar");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(201, users, "Users fetched Successfully"));
 });

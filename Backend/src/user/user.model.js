@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Message } from "../message/message.model.js";
+import { Conversation } from "../converstion/conversation.model.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -46,7 +47,6 @@ userSchema.pre("save", async function () {
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
-
 
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(

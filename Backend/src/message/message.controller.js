@@ -4,62 +4,80 @@ import ApiError from "../utils/ApiError.js";
 import { Message } from "../message/message.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Conversation } from "../converstion/conversation.model.js";
+import { getClient } from "../socket/socket.manager.js";
 
 export const sendMessage = asyncHandler(async (req, res) => {
-  const { message, converationId } = req.body;
+  const { message, conversationId } = req.body;
+
   const senderId = req.user._id;
 
-  // Validate that the provided conversationId belongs to an existing conversation.
+  // 1. Find conversation
   const conversation = await Conversation.findById(conversationId);
 
   if (!conversation) {
     throw new ApiError(404, "Conversation not found");
   }
 
-  // the user sending convId could be stolen, so check this conversation belong to requsted id
-  const isPrticipant = conversation.participants.some(
-    (participants) => participants.toString() === senderId.toString(),
+  // 2. Verify sender belongs to conversation
+  const isParticipant = conversation.participants.some(
+    (participant) => participant.toString() === senderId.toString(),
   );
-  if (!isPrticipant) {
-    throw new ApiError(403, "unauthorized req");
+
+  if (!isParticipant) {
+    throw new ApiError(403, "Unauthorized request");
   }
 
+  // // 3. Find receiver
+  // const receiverId = conversation.participants.find(
+  //   (participant) => participant.toString() !== senderId.toString(),
+  // );
+
+  // 4. Save message
   const newMessage = await Message.create({
     conversation: conversation._id,
     message,
-    senderId: req.user._id,
-    receiverId: req.params.id,
+    senderId,
   });
 
   if (!newMessage) {
     throw new ApiError(400, "Message not saved");
   }
 
-  converation.lastMessage = newMessage._id;
+  // 5. Update last message
+  conversation.lastMessage = newMessage._id;
+
   await conversation.save();
 
-  res.status(200).json(new ApiResponse(201, newMessage, "Successfully sent"));
-});
+  const receiverId = conversation.participants.find(
+    (participant) => participant.toString() !== senderId.toString(),
+  );
 
-export const getAllMessage = async (req, res) => {
-  // from currUSer.Id, to searched user id
+  console.log("Sender:", senderId.toString());
+  console.log("Receiver:", receiverId.toString());
 
-  const allMessages = await Message.find({
-    $or: [
-      {
-        from: req.user._id,
-        to: req.params.id,
-      },
-      {
-        from: req.params.id,
-        to: req.user._id,
-      },
-    ],
-  }).sort({ createdAt: 1 });
+  // 6. Find receiver's WebSocket
+  const receiverSocket = getClient(receiverId);
+  const senderSocket = getClient(senderId);
 
-  if (!allMessages) {
-    throw new ApiError(404, "No messages Found");
+  console.log("Receiver socket:", receiverSocket ? "ONLINE" : "OFFLINE");
+  // 7. Send real-time message
+  console.log("Sending NEW_MESSAGE to receiver");
+
+  const socketPayload = JSON.stringify({
+    type: "new_message",
+    message: newMessage,
+    conversationId: conversation._id,
+  });
+
+  if (receiverSocket) {
+    receiverSocket.send(socketPayload);
+  }
+  if (senderSocket) {
+    senderSocket.send(socketPayload);
   }
 
-  res.status(200).json(201, allMessages, "Successfully fetched all records");
-};
+  // 8. HTTP response to sender
+  return res
+    .status(200)
+    .json(new ApiResponse(201, newMessage, "Successfully sent"));
+});
