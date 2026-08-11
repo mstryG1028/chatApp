@@ -23,6 +23,11 @@ export const useSocket = (userId, onMessage) => {
 
       console.log("Socket event:", data);
 
+      // IMPORTANT:
+      // useSocket only receives socket events.
+      // It does NOT send message_delivered.
+      // ChatPage decides whether this user is sender or receiver.
+
       if (onMessage) {
         onMessage(data);
       }
@@ -35,7 +40,7 @@ export const useSocket = (userId, onMessage) => {
       socket.removeEventListener("open", handleOpen);
       socket.removeEventListener("message", handleMessage);
     };
-  }, [userId]);
+  }, [userId, onMessage]);
 
   return {
     disconnect: disconnectSocket,

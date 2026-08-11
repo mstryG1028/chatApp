@@ -1,4 +1,4 @@
-import { CheckCheck } from "lucide-react";
+import { Check, CheckCheck } from "lucide-react";
 import { cn } from "../../utils/cn";
 
 const MessageBubble = ({ message, currentUserId }) => {
@@ -33,8 +33,17 @@ const MessageBubble = ({ message, currentUserId }) => {
               minute: "2-digit",
             })}
           </span>
+          {isSender && (
+            <>
+              {message.status === "sent" && <Check size={15} />}
 
-          {isSender && <CheckCheck size={15} />}
+              {message.status === "delivered" && <CheckCheck size={15} />}
+
+              {message.status === "read" && (
+                <CheckCheck size={15} className="text-green-400" />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

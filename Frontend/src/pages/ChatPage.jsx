@@ -9,6 +9,7 @@ import {
   identifySocket,
   disconnectSocket,
 } from "../socket/socket";
+import { sendSocketMessage } from "../socket/socket";
 import { getAllConversation } from "../services/conversation.service";
 
 const ChatPage = () => {
@@ -71,60 +72,154 @@ const ChatPage = () => {
   const handleSocketMessage = (data) => {
     console.log("🔥 ChatPage received:", data);
 
-    if (data.type !== "new_message") {
-      return;
-    }
-
-    const newMessage = data.message;
-    const conversationId = data.conversationId.toString();
-
     // ==========================================
-    // 1. UPDATE CURRENTLY OPEN CHAT
+    // 1. NEW MESSAGE
     // ==========================================
 
-    if (conversationId === selectedConversationRef.current?._id?.toString()) {
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-    }
+    if (data.type === "new_message") {
+      const newMessage = data.message;
 
-    // ==========================================
-    // 2. CHECK SIDEBAR CONVERSATION
-    // ==========================================
+      const conversationId = data.conversationId?.toString();
 
-    const existingConversation = conversations.find(
-      (conversation) => conversation._id.toString() === conversationId,
-    );
+      const currentUserId = user?._id?.toString();
 
-    // ==========================================
-    // 3. EXISTING CONVERSATION
-    // ==========================================
+      const messageSenderId =
+        newMessage.senderId?._id?.toString() || newMessage.senderId?.toString();
 
-    if (existingConversation) {
+      console.log("========== MESSAGE FLOW ==========");
+      console.log("Current User:", currentUserId);
+      console.log("Message Sender:", messageSenderId);
+
+      // ==========================================
+      // ADD MESSAGE TO CURRENT CHAT
+      // ==========================================
+
+      if (conversationId === selectedConversationRef.current?._id?.toString()) {
+        setMessages((prevMessages) => {
+          const alreadyExists = prevMessages.some(
+            (message) => message._id?.toString() === newMessage._id?.toString(),
+          );
+
+          if (alreadyExists) {
+            return prevMessages;
+          }
+
+          return [...prevMessages, newMessage];
+        });
+      }
+
+      // ==========================================
+      // DELIVERY
+      // ONLY RECEIVER SENDS ACK
+      // ==========================================
+
+      if (messageSenderId !== currentUserId) {
+        console.log("📥 I AM RECEIVER → sending delivered ACK");
+
+        sendSocketMessage({
+          type: "message_delivered",
+          messageId: newMessage._id,
+        });
+      } else {
+        console.log("📤 I AM SENDER → NOT sending delivered ACK");
+      }
+
+      // ==========================================
+      // UPDATE SIDEBAR
+      // ==========================================
+
       setConversations((prevConversations) => {
-        const updatedConversation = {
-          ...existingConversation,
-          lastMessage: newMessage.message,
-          time: newMessage.createdAt,
-        };
-
-        const remainingConversations = prevConversations.filter(
-          (conversation) => conversation._id.toString() !== conversationId,
+        const existingConversation = prevConversations.find(
+          (conversation) => conversation._id?.toString() === conversationId,
         );
 
-        return [updatedConversation, ...remainingConversations];
+        // Existing conversation
+        if (existingConversation) {
+          const updatedConversation = {
+            ...existingConversation,
+            lastMessage: newMessage.message,
+            time: newMessage.createdAt,
+          };
+
+          const remainingConversations = prevConversations.filter(
+            (conversation) => conversation._id?.toString() !== conversationId,
+          );
+
+          return [updatedConversation, ...remainingConversations];
+        }
+
+        // New conversation
+        console.log("🆕 New conversation received:", conversationId);
+
+        fetchConversations();
+
+        return prevConversations;
       });
 
       return;
     }
 
     // ==========================================
-    // 4. NEW CONVERSATION
+    // 2. MESSAGE DELIVERED
     // ==========================================
 
-    console.log("🆕 New conversation received:", conversationId);
+    if (data.type === "message_delivered") {
+      const deliveredMessage = data.message;
 
-    fetchConversations();
+      console.log("📩 MESSAGE DELIVERED:", deliveredMessage);
+
+      if (!deliveredMessage?._id) {
+        console.log("❌ Delivered message has no ID");
+        return;
+      }
+
+      setMessages((prevMessages) =>
+        prevMessages.map((message) =>
+          message._id?.toString() === deliveredMessage._id?.toString()
+            ? {
+                ...message,
+                status: "delivered",
+              }
+            : message,
+        ),
+      );
+
+      return;
+    }
+
+    // ==========================================
+    // 3. MESSAGE READ
+    // ==========================================
+
+    if (data.type === "message_read") {
+      const readMessage = data.message;
+
+      console.log("📖 MESSAGE READ:", readMessage);
+
+      if (!readMessage?._id) {
+        return;
+      }
+
+      setMessages((prevMessages) =>
+        prevMessages.map((message) =>
+          message._id?.toString() === readMessage._id?.toString()
+            ? {
+                ...message,
+                status: "read",
+              }
+            : message,
+        ),
+      );
+
+      return;
+    }
+
+    // ==========================================
+    // UNKNOWN EVENT
+    // ==========================================
+
+    console.log("⚠️ Unknown socket event:", data.type);
   };
-
   useSocket(user?._id, handleSocketMessage);
 
   useEffect(() => {

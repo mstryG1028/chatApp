@@ -1,9 +1,28 @@
+import { useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { sendSocketMessage } from "../../socket/socket";
 import MessageBubble from "./MessageBubble";
 
 const MessageList = ({ messages }) => {
   const { user } = useAuth();
- // console.log("📨 MessageList rendered:", messages);
+
+  useEffect(() => {
+    messages.forEach((message) => {
+      const senderId =
+        message.senderId?._id?.toString() || message.senderId?.toString();
+
+      const currentUserId = user?._id?.toString();
+
+      const isReceivedMessage = senderId !== currentUserId;
+
+      if (isReceivedMessage && message.status !== "read") {
+        sendSocketMessage({
+          type: "message_read",
+          messageId: message._id,
+        });
+      }
+    });
+  }, [messages, user?._id]);
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-5">

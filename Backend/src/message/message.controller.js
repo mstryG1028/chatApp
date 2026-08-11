@@ -37,8 +37,10 @@ export const sendMessage = asyncHandler(async (req, res) => {
     conversation: conversation._id,
     message,
     senderId,
+    status: "sent",
   });
 
+  console.log("message form msgConrooler", newMessage);
   if (!newMessage) {
     throw new ApiError(400, "Message not saved");
   }
@@ -67,11 +69,18 @@ export const sendMessage = asyncHandler(async (req, res) => {
     type: "new_message",
     message: newMessage,
     conversationId: conversation._id,
+    senderId: senderId.toString(),
+    receiverId: receiverId.toString(),
   });
 
   if (receiverSocket) {
+    console.log("📤 Sending NEW_MESSAGE to ONLINE receiver");
+
     receiverSocket.send(socketPayload);
+  } else {
+    console.log("❌ Receiver OFFLINE - NOT sending socket message");
   }
+
   if (senderSocket) {
     senderSocket.send(socketPayload);
   }
