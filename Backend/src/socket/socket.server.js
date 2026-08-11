@@ -1,5 +1,10 @@
 import { WebSocketServer } from "ws";
-import { addClient, removeClient, getClient } from "./socket.manager.js";
+import {
+  addClient,
+  removeClient,
+  getClient,
+  isUserOnline,
+} from "./socket.manager.js";
 import {
   markMessageAsDelivered,
   markMessageAsRead,
@@ -18,8 +23,6 @@ export const initializeSocket = (server) => {
 
     ws.on("message", async (data) => {
       const parsedData = JSON.parse(data.toString());
-
-      console.log("Received:", parsedData);
 
       if (parsedData.type === "identify") {
         userId = parsedData.userId;
@@ -87,6 +90,40 @@ export const initializeSocket = (server) => {
         }
       }
 
+      // for isTyping
+      if (parsedData.type === "typing_start") {
+        const { receiverId } = parsedData;
+
+        const receiverSocket = getClient(receiverId);
+
+        console.log("Receiver socket:", receiverSocket ? "ONLINE" : "OFFLINE");
+
+        if (receiverSocket) {
+          receiverSocket.send(
+            JSON.stringify({
+              type: "typing_start",
+              userId,
+            }),
+          );
+        }
+      }
+
+      // stoppedTyping
+
+      if (parsedData.type === "typing_stop") {
+        const { receiverId } = parsedData;
+        const receiverSocket = getClient(receiverId);
+
+        if (receiverSocket) {
+          receiverSocket.send(
+            JSON.stringify({
+              type: "typing_stop",
+              userId,
+            }),
+          );
+        }
+      }
+
       // implementation for mark as read fn
       if (parsedData.type === "message_delivered") {
         const { messageId } = parsedData;
@@ -145,6 +182,35 @@ export const initializeSocket = (server) => {
             }),
           );
         }
+      }
+
+      // check user is online or not
+      if (parsedData.type === "check_online") {
+        const { userId: targetUserId } = parsedData;
+
+        console.log("🔍 CHECK ONLINE:", targetUserId);
+
+        const targetSocket = getClient(targetUserId);
+
+        const isOnline = !!targetSocket;
+
+        console.log(
+          "User:",
+          targetUserId,
+          "is",
+          isOnline ? "ONLINE" : "OFFLINE",
+        );
+
+        // Response sirf us user ko bhejna
+        ws.send(
+          JSON.stringify({
+            type: "user_status",
+            userId: targetUserId,
+            online: isOnline,
+          }),
+        );
+
+        return;
       }
     });
 

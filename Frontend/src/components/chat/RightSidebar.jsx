@@ -4,17 +4,28 @@ import EmptyChat from "./EmptyChat";
 import MessageInput from "./MessageInput";
 import MessageList from "./MessageList";
 
-const RightSidebar = ({ selectedConversation, messages }) => {
+const RightSidebar = ({
+  selectedConversation,
+  messages,
+  isFriendOnline,
+  isTyping,
+}) => {
   console.log("convId from rightBar:", selectedConversation);
   return (
     <section className="flex h-full flex-1 flex-col bg-background">
       {selectedConversation ? (
         <>
-          <ChatHeader user={selectedConversation} />
+          <ChatHeader user={selectedConversation} isOnline={isFriendOnline} />
 
           <MessageList messages={messages} />
 
-          <MessageInput conversationId={selectedConversation?._id} />
+          {isTyping && (
+            <div className="px-6 py-2 text-sm ">Typing...</div>
+          )}
+          <MessageInput
+            conversationId={selectedConversation?._id}
+            receiverId={selectedConversation?.friendId}
+          />
         </>
       ) : (
         <EmptyChat />

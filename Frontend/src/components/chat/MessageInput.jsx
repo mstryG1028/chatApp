@@ -1,11 +1,16 @@
+import { useRef, useState } from "react";
 import { Image, Paperclip, Send, Smile } from "lucide-react";
-import { useState } from "react";
-import { sendMessage } from "../../services/chat.service";
 
-const MessageInput = ({ conversationId }) => {
+import { sendMessage } from "../../services/chat.service";
+import { sendSocketMessage } from "../../socket/socket";
+
+const MessageInput = ({ conversationId, receiverId }) => {
   // States
 
   const [message, setMessage] = useState("");
+
+  const typingTimer = useRef(null);
+
   // Functions
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,8 +26,30 @@ const MessageInput = ({ conversationId }) => {
   };
 
   const handleChange = (e) => {
-    e.preventDefault();
-    setMessage(e.target.value);
+    const value = e.target.value;
+    setMessage(value);
+
+    // whenever state of input field will change this will run
+    if (value.trim() != "") {
+      console.log("⌨️ TYPING START");
+      console.log("Receiver:", receiverId);
+
+      sendSocketMessage({
+        type: "typing_start",
+        receiverId,
+      });
+
+      clearTimeout(typingTimer.current);
+      typingTimer.current = setTimeout(() => {
+        console.log("🛑 TYPING STOP");
+        console.log("Receiver:", receiverId);
+
+        sendSocketMessage({
+          type: "typing_stop",
+          receiverId,
+        });
+      }, 1000);
+    }
   };
 
   return (

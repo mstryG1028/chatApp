@@ -16,21 +16,64 @@ const ChatPage = () => {
   const { user } = useAuth();
   // States
   const [conversations, setConversations] = useState([]);
-
+  const [isFriendOnline, setIsFriendOnline] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+
   // Functions
   const selectedConversationRef = useRef(null);
+
   const handleSelectChat = async (chat) => {
     console.log("🟢 SELECTED CHAT:", chat);
 
     setSelectedConversation(chat);
     selectedConversationRef.current = chat;
+
+    sendSocketMessage({
+      type: "check_online",
+      userId: chat.friendId,
+    });
+    // Remove unread badge immediately
+    setConversations((prevConversations) =>
+      prevConversations.map((conversation) =>
+        conversation._id?.toString() === chat._id?.toString()
+          ? {
+              ...conversation,
+              unreadCount: 0,
+            }
+          : conversation,
+      ),
+    );
+
     const res = await getConversation(chat.friendId);
 
     console.log("🟢 CONVERSATION FROM API:", res.data.message.conversation);
 
-    setMessages(res.data.message.messages);
+    const conversationMessages = res.data.message.messages;
+
+    setMessages(conversationMessages);
+
+    // ==========================================
+    // MARK RECEIVED MESSAGES AS READ
+    // ==========================================
+
+    const currentUserId = user?._id?.toString();
+
+    conversationMessages.forEach((message) => {
+      const messageSenderId =
+        message.senderId?._id?.toString() || message.senderId?.toString();
+
+      // Only mark messages received from other user
+      if (messageSenderId !== currentUserId && message.status !== "read") {
+        console.log("📖 Marking message as read:", message._id);
+
+        sendSocketMessage({
+          type: "message_read",
+          messageId: message._id,
+        });
+      }
+    });
   };
 
   const handleStartChat = async (user) => {
@@ -51,6 +94,13 @@ const ChatPage = () => {
 
       setSelectedConversation(chat);
       selectedConversationRef.current = chat;
+
+      setIsFriendOnline(false);
+
+      sendSocketMessage({
+        type: "check_online",
+        userId: user._id,
+      });
 
       setMessages(messages);
 
@@ -135,10 +185,17 @@ const ChatPage = () => {
 
         // Existing conversation
         if (existingConversation) {
+          const isCurrentlyOpen =
+            conversationId === selectedConversationRef.current?._id?.toString();
+
           const updatedConversation = {
             ...existingConversation,
             lastMessage: newMessage.message,
             time: newMessage.createdAt,
+
+            unreadCount: isCurrentlyOpen
+              ? 0
+              : (existingConversation.unreadCount || 0) + 1,
           };
 
           const remainingConversations = prevConversations.filter(
@@ -147,7 +204,6 @@ const ChatPage = () => {
 
           return [updatedConversation, ...remainingConversations];
         }
-
         // New conversation
         console.log("🆕 New conversation received:", conversationId);
 
@@ -215,6 +271,60 @@ const ChatPage = () => {
     }
 
     // ==========================================
+    //  USER ONLINE / OFFLINE
+    // ==========================================
+
+    if (data.type === "user_status") {
+      const currentFriendId =
+        selectedConversationRef.current?.friendId?.toString();
+
+      const statusUserId = data.userId?.toString();
+
+      if (currentFriendId === statusUserId) {
+        setIsFriendOnline(data.online);
+      }
+
+      return;
+    }
+
+    // ==========================================
+    //  USER IS TYPING OR NOT
+    // ==========================================
+    if (data.type === "typing_start") {
+      console.log("⌨️ TYPING START EVENT:", data);
+
+      const currentFriendId =
+        selectedConversationRef.current?.friendId?.toString();
+
+      const typingUserId = data.userId?.toString();
+
+      console.log("Current Friend:", currentFriendId);
+      console.log("Typing User:", typingUserId);
+
+      if (typingUserId === currentFriendId) {
+        console.log("✅ SAME USER → SHOW TYPING");
+        setIsTyping(true);
+      }
+
+      return;
+    }
+
+    if (data.type === "typing_stop") {
+      console.log("🛑 TYPING STOP EVENT:", data);
+
+      const currentFriendId =
+        selectedConversationRef.current?.friendId?.toString();
+
+      const typingUserId = data.userId?.toString();
+
+      if (typingUserId === currentFriendId) {
+        setIsTyping(false);
+      }
+
+      return;
+    }
+
+    // ==========================================
     // UNKNOWN EVENT
     // ==========================================
 
@@ -247,6 +357,8 @@ const ChatPage = () => {
       <RightSidebar
         selectedConversation={selectedConversation}
         messages={messages}
+        isFriendOnline={isFriendOnline}
+        isTyping={isTyping}
       />
     </main>
   );

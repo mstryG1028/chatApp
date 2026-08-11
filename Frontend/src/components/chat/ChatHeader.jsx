@@ -2,7 +2,7 @@ import { EllipsisVertical, Phone, Video } from "lucide-react";
 
 import Avatar from "../ui/Avatar";
 
-const ChatHeader = ({ user, online }) => {
+const ChatHeader = ({ user, isOnline }) => {
   // Functions
   if (!user) {
     return (
@@ -29,13 +29,13 @@ const ChatHeader = ({ user, online }) => {
       "
     >
       <div className="flex items-center gap-4">
-        <Avatar src={user.avatar} name={user.name} online={user.online} />
+        <Avatar src={user.avatar} name={user.name} online={isOnline} />
 
         <div>
           <h2 className="text-lg font-semibold text-text">{user.name}</h2>
 
           <p className="text-sm text-text-muted">
-            {user.online ? "Online" : "Offline"}
+            {isOnline ? "Online" : "Offline"}
           </p>
         </div>
       </div>

@@ -13,20 +13,33 @@ const ChatCard = ({ chat, active, onClick }) => {
       <Avatar src={chat.avatar} name={chat.name} />
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="truncate font-medium">{chat.name}</h3>
 
-          <span
-            className={cn(
-              "text-xs",
-              active ? "text-white/80" : "text-text-muted",
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "text-xs",
+                active ? "text-white/80" : "text-text-muted",
+              )}
+            >
+              {new Date(chat.time).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+
+            {chat.unreadCount > 0 && (
+              <span
+                className={cn(
+                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium",
+                  active ? "bg-white text-primary" : "bg-primary text-white",
+                )}
+              >
+                {chat.unreadCount}
+              </span>
             )}
-          >
-            {new Date(chat.time).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
+          </div>
         </div>
 
         <p

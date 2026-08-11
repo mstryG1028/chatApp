@@ -61,30 +61,56 @@ export const getAllConversations = asyncHandler(async (req, res) => {
     })
     .sort({ updatedAt: -1 });
 
-  const sidebarChats = allConversations.map((conversation) => {
-    const otherUser = conversation.participants.find(
-      (p) => p._id.toString() !== userId.toString(),
-    );
-    if (!otherUser) {
-      console.log("Invalid conversation:", conversation._id.toString());
+  const sidebarChats = await Promise.all(
+    allConversations.map(async (conversation) => {
+      const otherUser = conversation.participants.find(
+        (p) => p._id.toString() !== userId.toString(),
+      );
 
-      return null;
-    }
+      if (!otherUser) {
+        console.log(
+          "Invalid conversation:",
+          conversation._id.toString(),
+        );
 
-    return {
-      _id: conversation._id,
-      friendId: otherUser._id,
-      name: otherUser.name,
-      username: otherUser.username,
-      avatar: otherUser.avatar,
-      lastMessage: conversation.lastMessage?.message || "",
-      time: conversation.lastMessage?.createdAt,
-    };
-  });
+        return null;
+      }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(201, sidebarChats, "Successfully fetched Conversation"),
-    );
+      // ==========================================
+      // COUNT UNREAD MESSAGES
+      // ==========================================
+
+      const unreadCount = await Message.countDocuments({
+        conversation: conversation._id,
+
+        // Message kisi aur ne bheja ho
+        senderId: { $ne: userId },
+
+        // Message abhi read nahi hua
+        status: { $ne: "read" },
+      });
+
+      return {
+        _id: conversation._id,
+        friendId: otherUser._id,
+        name: otherUser.name,
+        username: otherUser.username,
+        avatar: otherUser.avatar,
+
+        lastMessage: conversation.lastMessage?.message || "",
+        time: conversation.lastMessage?.createdAt,
+
+        // NEW
+        unreadCount,
+      };
+    }),
+  );
+
+  res.status(200).json(
+    new ApiResponse(
+      201,
+      sidebarChats.filter(Boolean),
+      "Successfully fetched Conversation",
+    ),
+  );
 });
